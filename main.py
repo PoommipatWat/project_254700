@@ -5,29 +5,25 @@ import time
 
 # ==================== NUMERICAL METHODS ====================
 
-def euler_method(f, x0, Y0, h, n_steps):
-    x_values = np.zeros(n_steps + 1)
-    Y_values = np.zeros((n_steps + 1, len(Y0)))
-    
-    x_values[0] = x0
-    Y_values[0] = Y0
+def euler_method(f, x0, Y0, h, n_steps, x_max = None):
+    x_values = [x0]
+    Y_values = [Y0]
     
     for n in range(n_steps):
         x_n = x_values[n]
         Y_n = Y_values[n]
         
-        Y_values[n + 1] = Y_n + h * f(x_n, Y_n)
-        x_values[n + 1] = x_n + h
+        Y_values.append(Y_n + h * f(x_n, Y_n))
+        x_values.append(x_n + h)
+        if x_max is not None and Y_values[-1][0] >= x_max:
+            break
     
-    return x_values, Y_values
+    return np.array(x_values), np.array(Y_values)
 
 
-def improved_euler_method(f, x0, Y0, h, n_steps):
-    x_values = np.zeros(n_steps + 1)
-    Y_values = np.zeros((n_steps + 1, len(Y0)))
-    
-    x_values[0] = x0
-    Y_values[0] = Y0
+def improved_euler_method(f, x0, Y0, h, n_steps, x_max = None):
+    x_values = [x0]
+    Y_values = [Y0]
     
     for n in range(n_steps):
         x_n = x_values[n]
@@ -37,18 +33,18 @@ def improved_euler_method(f, x0, Y0, h, n_steps):
         Y_star = Y_n + h * f(x_n, Y_n)
         
         # Corrector
-        Y_values[n + 1] = Y_n + (h / 2) * (f(x_n, Y_n) + f(x_n + h, Y_star))
-        x_values[n + 1] = x_n + h
+        Y_values.append(Y_n + (h / 2) * (f(x_n, Y_n) + f(x_n + h, Y_star)))
+        x_values.append(x_n + h)
+
+        if x_max is not None and Y_values[-1][0] >= x_max:
+            break
     
-    return x_values, Y_values
+    return np.array(x_values), np.array(Y_values)
 
 
-def rk4_method(f, x0, Y0, h, n_steps):
-    x_values = np.zeros(n_steps + 1)
-    Y_values = np.zeros((n_steps + 1, len(Y0)))
-    
-    x_values[0] = x0
-    Y_values[0] = Y0
+def rk4_method(f, x0, Y0, h, n_steps, x_max = None):
+    x_values = [x0]
+    Y_values = [Y0]
     
     for n in range(n_steps):
         x_n = x_values[n]
@@ -59,10 +55,13 @@ def rk4_method(f, x0, Y0, h, n_steps):
         k3 = h * f(x_n + h/2, Y_n + k2/2)
         k4 = h * f(x_n + h, Y_n + k3)
         
-        Y_values[n + 1] = Y_n + (1/6) * (k1 + 2*k2 + 2*k3 + k4)
-        x_values[n + 1] = x_n + h
+        Y_values.append(Y_n + (1/6) * (k1 + 2*k2 + 2*k3 + k4))
+        x_values.append(x_n + h)
+
+        if x_max is not None and Y_values[-1][0] >= x_max:
+            break
     
-    return x_values, Y_values
+    return np.array(x_values), np.array(Y_values)
 
 
 # ==================== STATE SPACE FUNCTION ====================
@@ -79,9 +78,9 @@ def F_state_space(t, Y, a):
 
 # ==================== EXACT FUNCTION ====================
 def exact_solution(a, t = None, x_max = None):
-    if t is not None:
+    if x_max is None:
         return 0.5 * a * t**2 
-    elif x_max is not None:
+    else:
         return np.sqrt(2 * x_max * (1/a))
     
 
@@ -95,7 +94,7 @@ def find_CG(CAR_CM_X, CAR_CM_Y, CAR_M, M_rod, rod_position):
     CG_x = sum_mx / total_mass
     CG_y = sum_my / total_mass
 
-    return [CG_x, CG_y], total_mass
+    return [CG_x, CG_y]
 
 def find_N(CG_x, CG_y, M_car, WHEEL_X, rod_position, M_rod, force, force_position):
     # Rod Moment
@@ -170,16 +169,18 @@ def main():
     force_rod_select = 13                                  # กรอกแท่งน้ำหนัก 1 - 16
     force_hole_select = 1                                 # เลือก 1-6 จาก ล่างขึ้นบน
 
-    rod_select = np.array([0, 0, 0, 5, 0, 0, 0])         # กรอกแท่งน้ำหนัก ลำดับ 1-7 จากซ้ายไปขวา โดยเป็นเลขลำดับ 1 - 16
+    rod_select = np.array([1, 2, 3, 4, 0, 0, 0])         # กรอกแท่งน้ำหนัก ลำดับ 1-7 จากซ้ายไปขวา โดยเป็นเลขลำดับ 1 - 16
 
     Y0 = np.array([0.0, 0.0])  # [position, velocity]
-    t_final = 10.0
+    t_final = 1.0
     dt = 0.01
+
+    x_max = None                                           # เลือกระยะทางเพื่อหาเวลา หรือ ถ้าต้องการหาระยะทางใส่ None
     
     # ---- Prepare for Calculation ---- #
     total_force = ROD_MASSES[force_rod_select-1] * g
     force_position = FORCE_POSITIONS[force_hole_select-1]
-    force_angle = FORCE_ANGLE[force_hole_select-1]
+    force_angle = np.abs(FORCE_ANGLE[force_hole_select-1])
     force = np.array([np.cos(force_angle), np.sin(force_angle)]) * total_force
     rod_mass = np.where(rod_select == 0, 0, ROD_MASSES[rod_select - 1])
     a = (force[0]) / (CAR_MASS + np.sum(rod_mass))
@@ -187,23 +188,23 @@ def main():
     n_steps = int(t_final / dt)
 
     # ---- Is the car overturned? ---- #
-    cg, total_mass = find_CG(CAR_CM_X, CAR_CM_Y, CAR_MASS, rod_mass, ROD_POSITIONS)
+    cg = find_CG(CAR_CM_X, CAR_CM_Y, CAR_MASS, rod_mass, ROD_POSITIONS)
     n, is_overturned = find_N(cg[0], cg[1], CAR_MASS, RIGHT_WHEEL_X, ROD_POSITIONS, rod_mass, force, force_position)
 
-    print(f"The car is {'overturned' if is_overturned else 'not overturned'}")
+    print(f"The car is {'overturned' if is_overturned else 'not overturned'} {n}")
 
     # ---- Numerical Method Test ---- #
-    exact_result =  exact_solution(a, t = t_final)
-    T_euler, Y_euler = euler_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
-    T_improved, Y_improved = improved_euler_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
-    T_rk4, Y_rk4 = rk4_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
+    exact_result =  exact_solution(a, t = t_final, x_max=x_max)
+    T_euler, Y_euler = euler_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps, x_max=x_max)
+    T_improved, Y_improved = improved_euler_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps, x_max=x_max)
+    T_rk4, Y_rk4 = rk4_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps, x_max=x_max)
 
     print(f"Exact:          X = {exact_result:.6f} m")
     print(f"Euler:          X = {Y_euler[-1, 0]:.6f} m")
     print(f"Improved Euler: X = {Y_improved[-1, 0]:.6f} m")
     print(f"RK4:            X = {Y_rk4[-1, 0]:.6f} m")
 
-    print(exact_solution(a, x_max = exact_result))
+    
 
 if __name__ == "__main__":
     main()
