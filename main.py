@@ -6,10 +6,6 @@ import time
 # ==================== NUMERICAL METHODS ====================
 
 def euler_method(f, x0, Y0, h, n_steps):
-    """
-    Euler Method (หน้า 5)
-    Y(n+1) = Y(n) + h * f(x(n), Y(n))
-    """
     x_values = np.zeros(n_steps + 1)
     Y_values = np.zeros((n_steps + 1, len(Y0)))
     
@@ -27,10 +23,6 @@ def euler_method(f, x0, Y0, h, n_steps):
 
 
 def improved_euler_method(f, x0, Y0, h, n_steps):
-    """
-    Improved Euler Method / RK2 (หน้า 7)
-    Predictor-Corrector
-    """
     x_values = np.zeros(n_steps + 1)
     Y_values = np.zeros((n_steps + 1, len(Y0)))
     
@@ -52,9 +44,6 @@ def improved_euler_method(f, x0, Y0, h, n_steps):
 
 
 def rk4_method(f, x0, Y0, h, n_steps):
-    """
-    Runge-Kutta 4th Order (หน้า 13)
-    """
     x_values = np.zeros(n_steps + 1)
     Y_values = np.zeros((n_steps + 1, len(Y0)))
     
@@ -79,16 +68,6 @@ def rk4_method(f, x0, Y0, h, n_steps):
 # ==================== STATE SPACE FUNCTION ====================
 
 def F_state_space(t, Y, a):
-    """
-    State space function สำหรับความเร่งคงที่
-    Y = [x, v]
-    คืนค่า dY/dt = [v, a]
-    
-    Parameters:
-    - t: เวลา
-    - Y: state vector [x, v]
-    - a: ความเร่งคงที่
-    """
     x = Y[0]
     v = Y[1]
     
@@ -98,124 +77,126 @@ def F_state_space(t, Y, a):
     return np.array([dx_dt, dv_dt])
 
 
-def exact_solution(m1, m2, theta, t):
-    """คำตอบแม่นตรง: x(t) = (1/2) * a * t²"""
-    a = (m1 * g * np.cos(theta)) / m2
+# ==================== EXACT FUNCTION ====================
+def exact_solution(a, t):
     return 0.5 * a * t**2
+
+
+# ==================== MOMENT FUNCTION ====================
+def find_CG(CAR_CM_X, CAR_CM_Y, CAR_M, M_rod, rod_position):
+    total_mass = CAR_M + np.sum(M_rod)
+
+    sum_mx = CAR_CM_X * CAR_M + np.sum(M_rod * rod_position[:, 0])
+    sum_my = CAR_CM_Y * CAR_M + np.sum(M_rod * rod_position[:, 1])
+
+    CG_x = sum_mx / total_mass
+    CG_y = sum_my / total_mass
+
+    return [CG_x, CG_y], total_mass
+
+def find_N(CG_x, CG_y, M_car, WHEEL_X, rod_position, M_rod, force, force_position):
+    # Rod Moment
+    r_rod_x = WHEEL_X - rod_position[:, 0]
+    moment_rod = np.sum(M_rod * g * r_rod_x)
+
+    # Car Moment
+    r_car_x = WHEEL_X - CG_x
+    moment_car = M_car * g * r_car_x
+
+    # Force Moment
+    r_force_x = WHEEL_X - force_position[0]
+    r_force_y = force_position[1]
+    moment_force = (force[1] * r_force_x) - (force[0] * r_force_y)
+
+    r_N_x = 105.850/1000
+    N_back = (moment_rod + moment_car - moment_force) / r_N_x
+    N_front = (M_car + np.sum(M_rod))*g - force[1] - N_back
+
+    return [N_front, N_back], N_front < 0 or N_back < 0
 
 
 # ==================== MAIN PROGRAM ====================
 
 def main():
-    print("=" * 80)
-    print("Numerical Methods สำหรับ ODE")
-    print("=" * 80)
-    
-    # พารามิเตอร์
-    m1 = 5.0
-    m2 = 10.0
-    theta = np.deg2rad(30)
-    
-    # คำนวณความเร่ง
-    a = (m1 * g * np.cos(theta)) / m2
-    
-    # ค่าเริ่มต้น
-    t0 = 0
-    t_max = 10
-    x0 = 0
-    v0 = 0
-    Y0 = np.array([x0, v0])
-    
-    # สร้าง function ที่มี 2 parameters โดยใช้ lambda
-    # F(t, Y) จะเรียก F_state_space(t, Y, a) โดยส่ง a เข้าไปด้วย
-    F = lambda t, Y: F_state_space(t, Y, a)
-    
-    print(f"\nสมการ: d²x/dt² = {a:.4f} m/s²")
-    print(f"State Space: Y = [x, v]^T, dY/dt = [v, a]^T")
-    print(f"ค่าเริ่มต้น: Y(0) = [{x0}, {v0}]^T\n")
-    
-    # ทดสอบหลาย dt
-    dt_values = [2.0, 1.0, 0.5, 0.1]
-    
-    x_exact_final = exact_solution(m1, m2, theta, t_max)
-    print(f"คำตอบแม่นตรง ที่ t = {t_max} s: x = {x_exact_final:.10f} m\n")
-    
-    print(f"{'dt':<8} {'Method':<15} {'x (m)':<18} {'v (m/s)':<18} {'Error (m)':<18} {'Steps':<8}")
-    print("-" * 95)
-    
-    for dt in dt_values:
-        n_steps = int(t_max / dt)
-        x_exact = exact_solution(m1, m2, theta, t_max)
-        
-        # Euler
-        t_e, Y_e = euler_method(F, t0, Y0, dt, n_steps)
-        x_euler = Y_e[-1, 0]
-        v_euler = Y_e[-1, 1]
-        error_euler = abs(x_exact - x_euler)
-        print(f"{dt:<8.2f} {'Euler':<15} {x_euler:<18.10f} {v_euler:<18.10f} {error_euler:<18.2e} {n_steps:<8}")
-        
-        # RK2
-        t_rk2, Y_rk2 = improved_euler_method(F, t0, Y0, dt, n_steps)
-        x_rk2 = Y_rk2[-1, 0]
-        v_rk2 = Y_rk2[-1, 1]
-        error_rk2 = abs(x_exact - x_rk2)
-        print(f"{dt:<8.2f} {'RK2':<15} {x_rk2:<18.10f} {v_rk2:<18.10f} {error_rk2:<18.2e} {n_steps:<8}")
-        
-        # RK4
-        t_rk4, Y_rk4 = rk4_method(F, t0, Y0, dt, n_steps)
-        x_rk4 = Y_rk4[-1, 0]
-        v_rk4 = Y_rk4[-1, 1]
-        error_rk4 = abs(x_exact - x_rk4)
-        print(f"{dt:<8.2f} {'RK4':<15} {x_rk4:<18.10f} {v_rk4:<18.10f} {error_rk4:<18.2e} {n_steps:<8}")
-        
-        print("-" * 95)
-    
-    # Plot
-    dt_demo = 1.0
-    n_steps = int(t_max / dt_demo)
-    
-    t_e, Y_e = euler_method(F, t0, Y0, dt_demo, n_steps)
-    t_rk2, Y_rk2 = improved_euler_method(F, t0, Y0, dt_demo, n_steps)
-    t_rk4, Y_rk4 = rk4_method(F, t0, Y0, dt_demo, n_steps)
-    
-    t_exact = np.linspace(0, t_max, 1000)
-    x_exact_array = exact_solution(m1, m2, theta, t_exact)
-    v_exact_array = a * t_exact
-    
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    
-    # Position
-    ax1 = axes[0]
-    ax1.plot(t_exact, x_exact_array, 'k-', label='Exact', linewidth=2)
-    ax1.plot(t_e, Y_e[:, 0], 'o-', label='Euler', linewidth=2, markersize=6)
-    ax1.plot(t_rk2, Y_rk2[:, 0], 's-', label='RK2', linewidth=2, markersize=6)
-    ax1.plot(t_rk4, Y_rk4[:, 0], '^-', label='RK4', linewidth=2, markersize=6)
-    ax1.set_xlabel('Time (s)', fontsize=12)
-    ax1.set_ylabel('Position x (m)', fontsize=12)
-    ax1.set_title(f'Position vs Time (dt = {dt_demo} s)', fontsize=14, fontweight='bold')
-    ax1.legend(fontsize=11)
-    ax1.grid(True, alpha=0.3)
-    
-    # Velocity
-    ax2 = axes[1]
-    ax2.plot(t_exact, v_exact_array, 'k-', label='Exact', linewidth=2)
-    ax2.plot(t_e, Y_e[:, 1], 'o-', label='Euler', linewidth=2, markersize=6)
-    ax2.plot(t_rk2, Y_rk2[:, 1], 's-', label='RK2', linewidth=2, markersize=6)
-    ax2.plot(t_rk4, Y_rk4[:, 1], '^-', label='RK4', linewidth=2, markersize=6)
-    ax2.set_xlabel('Time (s)', fontsize=12)
-    ax2.set_ylabel('Velocity v (m/s)', fontsize=12)
-    ax2.set_title(f'Velocity vs Time (dt = {dt_demo} s)', fontsize=14, fontweight='bold')
-    ax2.legend(fontsize=11)
-    ax2.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.show()
-    
-    print("\n" + "=" * 80)
-    print("การใช้ lambda เพื่อส่ง parameter เพิ่มเติม:")
-    print("F = lambda t, Y: F_state_space(t, Y, a)")
-    print("=" * 80)
+    # ---- Material Density ---- #
+    SS400_DENSITY = 7.85e3
 
+    # ---- Car Propoties ---- #
+    CAR_VOLUME = 1.654e5 * 1e-9
+    CAR_MASS = CAR_VOLUME * SS400_DENSITY
+
+    CAR_HEIGHT = 98.4250085662*1e-3
+    CAR_WIDTH = 135*1e-3
+
+    CAR_CM_X = -2.808*1e-3
+    CAR_CM_Y = CAR_HEIGHT - 35.573*1e-3
+
+    RIGHT_WHEEL_X = 52.925*1e-3
+
+    # ---- Rod Propoties ---- #
+    ROD_POSITIONS = np.array([                       # มี 7 ตำแหน่ง
+        [45, 98.425], 
+        [30, 98.425], 
+        [15, 98.425], 
+        [0, 98.425], 
+        [-15, 98.425], 
+        [-30, 98.425], 
+        [-45, 98.425]
+        ]) * 1e-3
+    
+    ROD_LENGTHS = np.concatenate((
+        [30]*2, [40]*2, [50]*2, [60]*2,
+        [80]*2, [100]*2, [120]*2, [200]*2
+    )) * 1e-3
+    ROD_VOLUME = np.pi * (5*1e-3)**2 * ROD_LENGTHS
+    ROD_MASSES = ROD_VOLUME * SS400_DENSITY           # มี 16 ลำดับตามไฟล์ excel
+
+    # ---- Force Propoties ---- #
+    PULLEY_POSITIONS = np.array([1500, 24.425]) * 1e-3
+
+    FORCE_POSITIONS = np.array([[-60, 24.425], 
+                              [-60, 30.425],
+                              [-60, 36.425],
+                              [-60, 42.425],
+                              [-60, 48.425],
+                              [-60, 54.425]]) * 1e-3
+    PULLEY_LENGHTS = PULLEY_POSITIONS - FORCE_POSITIONS
+    FORCE_ANGLE = np.arctan2(PULLEY_LENGHTS[:, 1], PULLEY_LENGHTS[:, 0])
+
+    # ---- Parameter Selection ---- #
+    total_force = 1   # N
+    force_hole_select = 1                                # เลือก 1-6 จาก ล่างขึ้นบน
+
+    rod_select = np.array([0, 0, 1, 3, 2, 0, 13])         # กรอกแท่งน้ำหนัก ลำดับ 1-7 จากซ้ายไปขวา
+
+    Y0 = np.array([0.0, 0.0])  # [position, velocity]
+    t_final = 10.0
+    dt = 0.01
+    
+    # ---- Prepare for Calculation ---- #
+    force_position = FORCE_POSITIONS[force_hole_select-1]
+    force = np.array([np.cos(FORCE_ANGLE[force_hole_select-1]), np.sin(FORCE_ANGLE[force_hole_select-1])]) * total_force
+    rod_mass = np.where(rod_select == 0, 0, ROD_MASSES[rod_select - 1])
+    a = (np.sum(rod_mass) * g * np.cos(FORCE_ANGLE[force_hole_select-1])) / CAR_MASS
+
+    n_steps = int(t_final / dt)
+
+    # ---- Is the car overturned? ---- #
+    cg, total_mass = find_CG(CAR_CM_X, CAR_CM_Y, CAR_MASS, rod_mass, ROD_POSITIONS)
+    n, is_overturned = find_N(cg[0], cg[1], CAR_MASS, RIGHT_WHEEL_X, ROD_POSITIONS, rod_mass, force, force_position)
+
+    print(f"The car is {'overturned' if is_overturned else 'not overturned'}")
+
+    # ---- Numerical Method Test ---- #
+    exact_result =  exact_solution(a, t_final)
+    T_euler, Y_euler = euler_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
+    T_improved, Y_improved = improved_euler_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
+    T_rk4, Y_rk4 = rk4_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
+
+    print(f"Exact:          X = {exact_result:.6f} m")
+    print(f"Euler:          X = {Y_euler[-1, 0]:.6f} m")
+    print(f"Improved Euler: X = {Y_improved[-1, 0]:.6f} m")
+    print(f"RK4:            X = {Y_rk4[-1, 0]:.6f} m")
 
 if __name__ == "__main__":
     main()
