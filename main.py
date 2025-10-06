@@ -78,9 +78,12 @@ def F_state_space(t, Y, a):
 
 
 # ==================== EXACT FUNCTION ====================
-def exact_solution(a, t):
-    return 0.5 * a * t**2
-
+def exact_solution(a, t = None, x_max = None):
+    if t is not None:
+        return 0.5 * a * t**2 
+    elif x_max is not None:
+        return np.sqrt(2 * x_max * (1/a))
+    
 
 # ==================== MOMENT FUNCTION ====================
 def find_CG(CAR_CM_X, CAR_CM_Y, CAR_M, M_rod, rod_position):
@@ -164,20 +167,22 @@ def main():
     FORCE_ANGLE = np.arctan2(PULLEY_LENGHTS[:, 1], PULLEY_LENGHTS[:, 0])
 
     # ---- Parameter Selection ---- #
-    total_force = 1   # N
-    force_hole_select = 1                                # เลือก 1-6 จาก ล่างขึ้นบน
+    force_rod_select = 13                                  # กรอกแท่งน้ำหนัก 1 - 16
+    force_hole_select = 1                                 # เลือก 1-6 จาก ล่างขึ้นบน
 
-    rod_select = np.array([0, 0, 1, 3, 2, 0, 13])         # กรอกแท่งน้ำหนัก ลำดับ 1-7 จากซ้ายไปขวา
+    rod_select = np.array([0, 0, 0, 5, 0, 0, 0])         # กรอกแท่งน้ำหนัก ลำดับ 1-7 จากซ้ายไปขวา โดยเป็นเลขลำดับ 1 - 16
 
     Y0 = np.array([0.0, 0.0])  # [position, velocity]
     t_final = 10.0
     dt = 0.01
     
     # ---- Prepare for Calculation ---- #
+    total_force = ROD_MASSES[force_rod_select-1] * g
     force_position = FORCE_POSITIONS[force_hole_select-1]
-    force = np.array([np.cos(FORCE_ANGLE[force_hole_select-1]), np.sin(FORCE_ANGLE[force_hole_select-1])]) * total_force
+    force_angle = FORCE_ANGLE[force_hole_select-1]
+    force = np.array([np.cos(force_angle), np.sin(force_angle)]) * total_force
     rod_mass = np.where(rod_select == 0, 0, ROD_MASSES[rod_select - 1])
-    a = (np.sum(rod_mass) * g * np.cos(FORCE_ANGLE[force_hole_select-1])) / CAR_MASS
+    a = (force[0]) / (CAR_MASS + np.sum(rod_mass))
 
     n_steps = int(t_final / dt)
 
@@ -188,7 +193,7 @@ def main():
     print(f"The car is {'overturned' if is_overturned else 'not overturned'}")
 
     # ---- Numerical Method Test ---- #
-    exact_result =  exact_solution(a, t_final)
+    exact_result =  exact_solution(a, t = t_final)
     T_euler, Y_euler = euler_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
     T_improved, Y_improved = improved_euler_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
     T_rk4, Y_rk4 = rk4_method(lambda t, Y: F_state_space(t, Y, a), 0, Y0, dt, n_steps)
@@ -197,6 +202,8 @@ def main():
     print(f"Euler:          X = {Y_euler[-1, 0]:.6f} m")
     print(f"Improved Euler: X = {Y_improved[-1, 0]:.6f} m")
     print(f"RK4:            X = {Y_rk4[-1, 0]:.6f} m")
+
+    print(exact_solution(a, x_max = exact_result))
 
 if __name__ == "__main__":
     main()
